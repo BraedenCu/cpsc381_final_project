@@ -9,3 +9,13 @@ micromamba create -n realsense-stream -f environment.yml -c conda-forge
 micromamba activate realsense-stream 
 
 python -c "import pyrealsense2, flask, cv2; print('OK')"
+
+
+sudo mkdir -p /etc/apt/keyrings
+curl -sSf https://librealsense.intel.com/Debian/librealsense.pgp | sudo tee /etc/apt/keyrings/librealsense.pgp > /dev/null
+
+
+echo "deb [signed-by=/etc/apt/keyrings/librealsense.pgp] https://librealsense.intel.com/Debian/apt-repo `lsb_release -cs` main" | \
+sudo tee /etc/apt/sources.list.d/librealsense.list
+sudo apt-get update
+
