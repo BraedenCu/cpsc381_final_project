@@ -152,7 +152,8 @@ def gen_frames():
                     roi_buffer.clear()
             label = 'Person'
             if latest_prob >= 0.5:
-                label = 'Person • Waving'
+                # none for now
+                continue
             cv2.putText(frame, label, (x1, max(y1-10,20)),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,255,0), 2)
         else:
