@@ -1,0 +1,44 @@
+# --------- Stage 1: Build librealsense + Python deps ---------
+FROM python:3.10-slim-bookworm AS builder   # Official Python 3.10 slim image  [oai_citation:0‡Python⇒Speed](https://pythonspeed.com/articles/base-image-python-docker-images/?utm_source=chatgpt.com)
+
+# Install system build tools & Librealsense prerequisites
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential cmake git \
+    libssl-dev libusb-1.0-0-dev pkg-config \
+    libgtk-3-dev libglfw3-dev libgl1-mesa-dev libglu1-mesa-dev \
+  && rm -rf /var/lib/apt/lists/*         # Clean up apt cache  [oai_citation:1‡dev.intelrealsense.com](https://dev.intelrealsense.com/docs/compiling-librealsense-for-linux-ubuntu-guide?utm_source=chatgpt.com)
+
+# Clone & compile librealsense from source (needed for ARM64 / Jetson) 
+RUN git clone https://github.com/IntelRealSense/librealsense.git /opt/librealsense \
+ && mkdir -p /opt/librealsense/build && cd /opt/librealsense/build \
+ && cmake .. -DBUILD_PYTHON_BINDINGS:bool=true \
+ && make -j$(nproc) \
+ && make install                          # Installs librealsense2-dev, utils, kernels  [oai_citation:2‡劉](https://www.lieuzhenghong.com/how_to_install_librealsense_on_the_jetson_nx/?utm_source=chatgpt.com)
+
+# Install Python packages into a staging root to avoid mixing with host
+WORKDIR /opt/app
+COPY requirements.txt .
+RUN pip install --prefix=/opt/app \
+    -r requirements.txt                  # Flask, numpy, opencv-python-headless, pyrealsense2  [oai_citation:3‡Flask Documentation](https://flask.palletsprojects.com/en/stable/installation/?utm_source=chatgpt.com) [oai_citation:4‡PyPI](https://pypi.org/project/opencv-python/?utm_source=chatgpt.com) [oai_citation:5‡PyPI](https://pypi.org/project/numpy/?utm_source=chatgpt.com)
+
+# --------- Stage 2: Final runtime image ---------
+FROM python:3.10-slim-bookworm          # Match same base to keep C library ABI consistent  [oai_citation:6‡Docker Hub](https://hub.docker.com/_/python?utm_source=chatgpt.com)
+
+# Copy Librealsense libraries
+COPY --from=builder /usr/local/lib /usr/local/lib
+COPY --from=builder /usr/local/include /usr/local/include
+ENV LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
+
+# Copy Python packages
+COPY --from=builder /opt/app /opt/app
+ENV PYTHONPATH=/opt/app/lib/python3.10/site-packages:${PYTHONPATH}
+
+# Copy your application code
+WORKDIR /app
+COPY . /app
+
+# Expose Flask port
+EXPOSE 5000
+
+# Launch the Flask‐based RealSense server
+CMD ["python", "realsense_distance_server.py"]

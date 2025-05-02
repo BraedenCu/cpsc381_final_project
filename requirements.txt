@@ -1,0 +1,4 @@
+Flask==3.1.0
+numpy==2.2.5
+opencv-python-headless==4.8.1.78
+pyrealsense2            # pulls in the matching Librealsense Python wrapper
