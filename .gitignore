@@ -1,2 +1,6 @@
 *.h5
 *.pt
+# ignore weights folder
+weights/
+# ignore all files in the weights folder    
+weights/*
