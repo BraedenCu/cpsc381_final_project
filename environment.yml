@@ -1,0 +1,9 @@
+name: realsense-stream
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10           # or 3.9 if you prefer
+  - numpy                 # array operations
+  - flask                 # lightweight web server
+  - opencv                # video capture & encoding (cv2)
+  - pyrealsense2          # RealSense Python bindings
