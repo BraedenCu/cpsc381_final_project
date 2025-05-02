@@ -18,8 +18,8 @@ import cv2
 import numpy as np
 from collections import deque
 
-YOLO_MODEL_PATH    = 'yolov5m.pt' # pre-trained YOLOv5 model
-WAVE_MODEL_PATH    = 'wave_sequence_model_one_epoch.h5' # our own trained waving model
+YOLO_MODEL_PATH    = 'weights/yolov5m.pt' # pre-trained YOLOv5 model
+WAVE_MODEL_PATH    = 'weights/wave_sequence_model_one_epoch.h5' # our own trained waving model
 CONF_THRESHOLD     = 0.5 # person detection confidence
 FRAME_WIDTH        = 640  # RealSense frame width
 FRAME_HEIGHT       = 480  # RealSense frame height
