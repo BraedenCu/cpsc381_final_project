@@ -26,13 +26,23 @@ PIXHAWK_BAUD         = 57600
 
 # ---- Shared telemetry dict ----
 TELEMETRY = {
-    'battery': 'N/A',
-    'altitude': 'N/A',
-    'speed': 'N/A',
-    'pos_x': 'N/A',
-    'pos_y': 'N/A',
-    'pos_z': 'N/A',
-    'wave_prob': 0.0
+    'battery_pct':      'N/A',
+    'battery_voltage':  'N/A',
+    'battery_current':  'N/A',
+    'altitude_rel':     'N/A',
+    'altitude_abs':     'N/A',
+    'speed':            'N/A',
+    'climb':            'N/A',
+    'throttle':         'N/A',
+    'heading':          'N/A',
+    'lat':              'N/A',
+    'lon':              'N/A',
+    'fix_type':         'N/A',
+    'satellites':       'N/A',
+    'pos_x':            'N/A',
+    'pos_y':            'N/A',
+    'pos_z':            'N/A',
+    'wave_prob':        0.0
 }
 TELEMETRY_LOCK = threading.Lock()
 
@@ -68,9 +78,9 @@ HTML = f"""
     .video-container {{ flex:3; }}
     .info-panel {{ flex:1; padding:20px; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.1); overflow:auto; }}
     .info-panel h2 {{ margin-top:0; }}
-    .telemetry-item {{ margin:10px 0; }}
-    #deliverBtn {{ display:block; margin:20px 0; padding:10px 20px; background:#28a745; border:none; color:#fff; cursor:pointer; font-size:1em; border-radius:5px; }}
-    #statusMsg {{ margin-top:10px; color:#007bff; }}
+    .telemetry-item {{ margin:8px 0; }}
+    #deliverBtn {{ margin:12px 0; padding:8px 16px; background:#28a745; border:none; color:#fff; cursor:pointer; border-radius:5px; }}
+    #statusMsg {{ margin-top:8px; color:#007bff; }}
     img {{ width:100%; height:auto; display:block; }}
     canvas {{ width:100%; height:200px; margin-top:20px; }}
   </style>
@@ -81,12 +91,22 @@ HTML = f"""
   </div>
   <div class="info-panel">
     <h2>Telemetry</h2>
-    <div class="telemetry-item"><strong>Battery:</strong> <span id="battery">--</span></div>
-    <div class="telemetry-item"><strong>Altitude:</strong> <span id="altitude">--</span></div>
+    <div class="telemetry-item"><strong>Battery %:</strong> <span id="battery_pct">--</span></div>
+    <div class="telemetry-item"><strong>Battery V:</strong> <span id="battery_voltage">--</span></div>
+    <div class="telemetry-item"><strong>Battery I:</strong> <span id="battery_current">--</span></div>
+    <div class="telemetry-item"><strong>Throttle:</strong> <span id="throttle">--</span>%</div>
     <div class="telemetry-item"><strong>Speed:</strong> <span id="speed">--</span></div>
-    <div class="telemetry-item"><strong>Position X:</strong> <span id="pos_x">--</span></div>
-    <div class="telemetry-item"><strong>Position Y:</strong> <span id="pos_y">--</span></div>
-    <div class="telemetry-item"><strong>Position Z:</strong> <span id="pos_z">--</span></div>
+    <div class="telemetry-item"><strong>Climb:</strong> <span id="climb">--</span></div>
+    <div class="telemetry-item"><strong>Rel Alt:</strong> <span id="altitude_rel">--</span></div>
+    <div class="telemetry-item"><strong>Abs Alt:</strong> <span id="altitude_abs">--</span></div>
+    <div class="telemetry-item"><strong>Heading:</strong> <span id="heading">--</span></div>
+    <div class="telemetry-item"><strong>Latitude:</strong> <span id="lat">--</span></div>
+    <div class="telemetry-item"><strong>Longitude:</strong> <span id="lon">--</span></div>
+    <div class="telemetry-item"><strong>Fix Type:</strong> <span id="fix_type">--</span></div>
+    <div class="telemetry-item"><strong>Satellites:</strong> <span id="satellites">--</span></div>
+    <div class="telemetry-item"><strong>Pos X:</strong> <span id="pos_x">--</span></div>
+    <div class="telemetry-item"><strong>Pos Y:</strong> <span id="pos_y">--</span></div>
+    <div class="telemetry-item"><strong>Pos Z:</strong> <span id="pos_z">--</span></div>
     <div class="telemetry-item"><strong>Wave Prob:</strong> <span id="waveProb">0.00</span></div>
     <button id="deliverBtn">Deliver Aid</button>
     <div id="statusMsg"></div>
@@ -94,18 +114,15 @@ HTML = f"""
   </div>
 
   <script>
-    // Initialize Chart.js odometry plot
+    // Chart.js odometry plot
     const ctx = document.getElementById('odometryChart').getContext('2d');
     const odomChart = new Chart(ctx, {{
       type: 'line',
-      data: {{ datasets: [{{ label: 'Odometry Path', data: [], borderColor:'rgb(54,162,235)', fill:false }}] }},
+      data: {{ datasets: [{{ label:'Path', data:[], borderColor:'rgb(54,162,235)', fill:false }}] }},
       options: {{
-        animation: {{ duration:0 }},
-        scales: {{
-          x: {{ type:'linear', position:'bottom', title:{{ display:true, text:'X (m)' }} }},
-          y: {{ title:{{ display:true, text:'Y (m)' }} }}
-        }},
-        plugins: {{ legend:{{ display:false }} }}
+        animation:{{ duration:0 }},
+        scales:{{ x:{{ type:'linear', title:{{display:true,text:'X (m)'}} }}, y:{{ title:{{display:true,text:'Y (m)'}} }} }},
+        plugins:{{ legend:{{display:false}} }}
       }}
     }});
 
@@ -114,30 +131,37 @@ HTML = f"""
       const res = await fetch('/telemetry');
       const data = await res.json();
 
-      document.getElementById('battery').textContent  = data.battery;
-      document.getElementById('altitude').textContent = data.altitude;
-      document.getElementById('speed').textContent    = data.speed;
-      document.getElementById('pos_x').textContent    = data.pos_x;
-      document.getElementById('pos_y').textContent    = data.pos_y;
-      document.getElementById('pos_z').textContent    = data.pos_z;
-      document.getElementById('waveProb').textContent = data.wave_prob.toFixed(2);
+      document.getElementById('battery_pct').textContent     = data.battery_pct;
+      document.getElementById('battery_voltage').textContent = data.battery_voltage;
+      document.getElementById('battery_current').textContent = data.battery_current;
+      document.getElementById('throttle').textContent        = data.throttle;
+      document.getElementById('speed').textContent           = data.speed;
+      document.getElementById('climb').textContent           = data.climb;
+      document.getElementById('altitude_rel').textContent    = data.altitude_rel;
+      document.getElementById('altitude_abs').textContent    = data.altitude_abs;
+      document.getElementById('heading').textContent         = data.heading;
+      document.getElementById('lat').textContent             = data.lat;
+      document.getElementById('lon').textContent             = data.lon;
+      document.getElementById('fix_type').textContent        = data.fix_type;
+      document.getElementById('satellites').textContent      = data.satellites;
+      document.getElementById('pos_x').textContent           = data.pos_x;
+      document.getElementById('pos_y').textContent           = data.pos_y;
+      document.getElementById('pos_z').textContent           = data.pos_z;
+      document.getElementById('waveProb').textContent        = data.wave_prob.toFixed(2);
 
-      // Update odometry chart
-      const x = parseFloat(data.pos_x);
-      const y = parseFloat(data.pos_y);
+      // Update odometry plot
+      const x = parseFloat(data.pos_x), y = parseFloat(data.pos_y);
       if (!isNaN(x) && !isNaN(y)) {{
         odomChart.data.datasets[0].data.push({{x,y}});
-        if (odomChart.data.datasets[0].data.length > 500) {{
-          odomChart.data.datasets[0].data.shift();
-        }}
+        if (odomChart.data.datasets[0].data.length > 500) odomChart.data.datasets[0].data.shift();
         odomChart.update('none');
       }}
     }}
 
     document.getElementById('deliverBtn').onclick = async () => {{
       document.getElementById('statusMsg').textContent = 'Initiating delivery...';
-      const resp = await fetch('/deliver', {{ method:'POST' }});
-      const json = await resp.json();
+      const res = await fetch('/deliver', {{method:'POST'}});
+      const json = await res.json();
       document.getElementById('statusMsg').textContent = json.status;
     }};
 
@@ -168,28 +192,59 @@ def video_feed():
     return Response(stream_with_context(gen_frames()),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
 
-# ---- Pixhawk thread ----
+# ---- Pixhawk telemetry thread ----
 def find_pixhawk_port():
     for port in serial.tools.list_ports.comports():
-        if any(tag in port.description for tag in ('PX4','Pixhawk')) or 'usbmodem' in port.device:
+        if 'PX4' in port.description or 'Pixhawk' in port.description or 'usbmodem' in port.device:
             return port.device
     return PIXHAWK_PORT
 
 def pixhawk_thread():
     master = mavutil.mavlink_connection(find_pixhawk_port(), baud=PIXHAWK_BAUD)
     master.wait_heartbeat()
+
+    # ▶️ Request data streams
+    streams = [
+      mavutil.mavlink.MAV_DATA_STREAM_RAW_SENSORS,
+      mavutil.mavlink.MAV_DATA_STREAM_EXTENDED_STATUS,
+      mavutil.mavlink.MAV_DATA_STREAM_RC_CHANNELS,
+      mavutil.mavlink.MAV_DATA_STREAM_POSITION,
+      mavutil.mavlink.MAV_DATA_STREAM_EXTRA1,
+      mavutil.mavlink.MAV_DATA_STREAM_EXTRA2,
+      mavutil.mavlink.MAV_DATA_STREAM_EXTRA3
+    ]
+    for stream_id in streams:
+      for _ in range(3):
+        master.mav.request_data_stream_send(
+          master.target_system, master.target_component,
+          stream_id, 4, 1
+        )
+
+    # ▶️ Listen for telemetry
     while True:
-        msg = master.recv_match(type=['SYS_STATUS','GLOBAL_POSITION_INT','VFR_HUD','LOCAL_POSITION_NED'], blocking=True)
+        msg = master.recv_match(
+            type=['SYS_STATUS','GPS_RAW_INT','GLOBAL_POSITION_INT','VFR_HUD','LOCAL_POSITION_NED'],
+            blocking=True
+        )
         if not msg: continue
         with TELEMETRY_LOCK:
             t = msg.get_type()
             if t == 'SYS_STATUS':
-                pct = max(msg.battery_remaining,0)
-                TELEMETRY['battery'] = f"{pct}%"
+                TELEMETRY['battery_pct']     = f"{max(msg.battery_remaining,0)}%"
+                TELEMETRY['battery_voltage'] = f"{msg.voltage_battery/1000:.2f}V"
+                TELEMETRY['battery_current'] = f"{msg.current_battery/100:.2f}A"
+            elif t == 'GPS_RAW_INT':
+                TELEMETRY['lat']        = f"{msg.lat/1e7:.7f}"
+                TELEMETRY['lon']        = f"{msg.lon/1e7:.7f}"
+                TELEMETRY['fix_type']   = str(msg.fix_type)
+                TELEMETRY['satellites'] = str(msg.satellites_visible)
             elif t == 'GLOBAL_POSITION_INT':
-                TELEMETRY['altitude'] = f"{msg.relative_alt/1000:.1f}m"
+                TELEMETRY['altitude_abs'] = f"{msg.alt/1000:.1f}m"
+                TELEMETRY['heading']      = f"{msg.hdg/100:.2f}°"
             elif t == 'VFR_HUD':
-                TELEMETRY['speed'] = f"{msg.groundspeed:.1f}m/s"
+                TELEMETRY['speed']    = f"{msg.groundspeed:.1f}m/s"
+                TELEMETRY['climb']    = f"{msg.climb:.1f}m/s"
+                TELEMETRY['throttle'] = f"{msg.throttle}%"
             elif t == 'LOCAL_POSITION_NED':
                 TELEMETRY['pos_x'] = f"{msg.x:.2f}"
                 TELEMETRY['pos_y'] = f"{msg.y:.2f}"
@@ -205,7 +260,7 @@ def detect_person_box(frame):
     persons = [d for d in dets if int(d[5])==0 and d[4]>=CONF_THRESHOLD]
     if not persons: return None
     x1,y1,x2,y2,_,_ = max(persons, key=lambda d:d[4])
-    return map(int, (x1,y1,x2,y2))
+    return map(int,(x1,y1,x2,y2))
 
 def gen_frames():
     global latest_prob
@@ -219,15 +274,14 @@ def gen_frames():
             cv2.rectangle(frame,(x1,y1),(x2,y2),(0,255,0),2)
             crop = frame[y1:y2, x1:x2]
             if crop.size:
-                roi = cv2.resize(cv2.cvtColor(crop, cv2.COLOR_BGR2RGB), (ROI_SIZE,ROI_SIZE))
+                roi = cv2.resize(cv2.cvtColor(crop, cv2.COLOR_BGR2RGB),(ROI_SIZE,ROI_SIZE))
                 roi_buffer.append(roi)
                 if len(roi_buffer)==CLIP_LENGTH:
                     clip = preprocess_input(np.stack(roi_buffer).astype('float32'))
                     latest_prob = float(wave_model.predict(clip[None])[0,0])
                     roi_buffer.clear()
             label = 'Waving' if latest_prob>=0.5 else 'Person'
-            cv2.putText(frame, f"{label}", (x1,max(y1-10,20)),
-                        cv2.FONT_HERSHEY_SIMPLEX,0.6,(0,255,0),2)
+            cv2.putText(frame, label, (x1,y1-10),cv2.FONT_HERSHEY_SIMPLEX,0.6,(0,255,0),2)
 
         cv2.putText(frame, f"Wave p={latest_prob:.2f}", (10,FRAME_HEIGHT-10),
                     cv2.FONT_HERSHEY_SIMPLEX,0.6,(0,255,0),2)
@@ -237,8 +291,6 @@ def gen_frames():
                b'Content-Type: image/jpeg\r\n\r\n' + buf.tobytes() + b'\r\n')
 
 if __name__=='__main__':
-    # Disable TensorFlow INFO logs
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-    import warnings
-    warnings.filterwarnings("ignore", category=FutureWarning)
+    import warnings; warnings.filterwarnings("ignore", category=FutureWarning)
     app.run(host='0.0.0.0', port=3000, threaded=True)
