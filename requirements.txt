@@ -2,3 +2,5 @@ torch>=1.12.0
 tensorflow>=2.9.0
 opencv-python
 numpy
+pandas
+flask
