@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 Flask app for live wave detection via webcam.
 Streams processed frames to browser and displays drone telemetry.
@@ -20,7 +20,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 # ---- Configuration ----
 YOLO_MODEL_PATH = 'weights/yolov5m.pt'
-WAVE_MODEL_PATH = 'weights/wave_sequence_model_final.h5'
+WAVE_MODEL_PATH = 'weights/wave_sequence_model_file_split.h5'
 CONF_THRESHOLD  = 0.5
 FRAME_WIDTH     = 640
 FRAME_HEIGHT    = 480
@@ -168,4 +168,4 @@ def gen_frames():
                b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=2000, threaded=True)
+    app.run(host='0.0.0.0', port=2100, threaded=True)
