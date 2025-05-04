@@ -20,7 +20,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 # ---- Configuration ----
 YOLO_MODEL_PATH = 'weights/yolov5m.pt'
-WAVE_MODEL_PATH = 'weights/wave_sequence_model_final4.keras'
+WAVE_MODEL_PATH = 'weights/wave_sequence_model_final.keras'
 CONF_THRESHOLD  = 0.5
 FRAME_WIDTH     = 640
 FRAME_HEIGHT    = 480

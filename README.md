@@ -37,5 +37,10 @@ sudo apt-get update
 
 ## Downloading weights
 
-gdown --id 1iYwkwxuIJ3xZhSePxcqW3TKX4LmLz_iI -O wave_sequence_model_final.h5
+1. Get the ID from the share link created when you attempt to share uploaded links from google drive: https://drive.google.com/file/d/ID/view
 
+2. using the ID (note: it is between /view and /file/d) plug it into the command in 4. Repace "ID" with your ID from the gdrive link as specified in step 1.
+
+3. run pip install gdown
+
+4. gdown --id ID -O wave_sequence_model_final.keras
