@@ -13,7 +13,7 @@ training/drone_training.ipynb --> full final training pipeline for creating the 
 All other .ipynb / .py files in the repository. We do not garuntee correctness of any of these files, as they were only temporarily utilized to isolate performance of certain components of our architecture.
 
 
-## Environment setup
+## Environment setup: MacOS
 
 bash <(curl -L micro.mamba.pm/install.sh)
 
@@ -23,11 +23,14 @@ micromamba activate realsense-stream
 
 python -c "import pyrealsense2, flask, cv2; print('OK')"
 
+pip install -r requirements.txt
+
+python webcam_hosted.py
+
+## Environment setup: Linux (Experimental)
 
 sudo mkdir -p /etc/apt/keyrings
 curl -sSf https://librealsense.intel.com/Debian/librealsense.pgp | sudo tee /etc/apt/keyrings/librealsense.pgp > /dev/null
-
-
 echo "deb [signed-by=/etc/apt/keyrings/librealsense.pgp] https://librealsense.intel.com/Debian/apt-repo `lsb_release -cs` main" | \
 sudo tee /etc/apt/sources.list.d/librealsense.list
 sudo apt-get update
@@ -35,6 +38,4 @@ sudo apt-get update
 ## Downloading weights
 
 gdown --id 1iYwkwxuIJ3xZhSePxcqW3TKX4LmLz_iI -O wave_sequence_model_final.h5
-
-## Setting up environment on jetson
 
