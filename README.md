@@ -19,3 +19,9 @@ echo "deb [signed-by=/etc/apt/keyrings/librealsense.pgp] https://librealsense.in
 sudo tee /etc/apt/sources.list.d/librealsense.list
 sudo apt-get update
 
+## Downloading weights
+
+gdown --id 1iYwkwxuIJ3xZhSePxcqW3TKX4LmLz_iI -O wave_sequence_model_final.h5
+
+## Setting up environment on jetson
+
