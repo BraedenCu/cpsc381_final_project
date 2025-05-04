@@ -1,10 +1,17 @@
 # CPSC381
 
-## Structure
+## Structure of Repository
+
+### Inference + Training Files
 
 webcam_hosted.py --> specify path to weights, hosts display of the model in action in your browswer
 odometry_hosted.py --> for usage on the drone, displays model alongside odometry statistics
 training/drone_training.ipynb --> full final training pipeline for creating the model
+
+### Misc Testing Files
+
+All other .ipynb / .py files in the repository. We do not garuntee correctness of any of these files, as they were only temporarily utilized to isolate performance of certain components of our architecture.
+
 
 ## Environment setup
 
