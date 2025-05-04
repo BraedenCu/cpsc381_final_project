@@ -1,5 +1,11 @@
 # CPSC381
 
+## Structure
+
+webcam_hosted.py --> specify path to weights, hosts display of the model in action in your browswer
+odometry_hosted.py --> for usage on the drone, displays model alongside odometry statistics
+training/drone_training.ipynb --> full final training pipeline for creating the model
+
 ## Environment setup
 
 bash <(curl -L micro.mamba.pm/install.sh)
