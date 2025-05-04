@@ -18,7 +18,7 @@ if not cap.isOpened():
     raise RuntimeError("Unable to open camera")
 
 # 3) Destination on your Mac (replace with your Mac’s IP)
-SERVER_URL = 'http://<MAC_IP>:5000/receive'
+SERVER_URL = 'http://172.20.10.3:5000/receive'
 
 while True:
     # a) Grab a frame
