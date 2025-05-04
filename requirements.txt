@@ -6,5 +6,5 @@ pandas
 flask
 pyserial
 pymavlink
-torch
 ultralytics
+gdown
