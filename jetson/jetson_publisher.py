@@ -4,8 +4,8 @@ import threading
 import time
 import cv2
 import numpy as np
-import serial
 import serial.tools.list_ports
+import serial
 from flask import Flask, Response, jsonify, stream_with_context
 from pymavlink import mavutil
 
@@ -33,10 +33,11 @@ cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
 if not cap.isOpened():
     raise RuntimeError("Could not open camera")
 
-# ---- Arduino setup ----
+# ---- Arduino setup (dropper) ----
 def find_arduino_port():
+    """Scan for an Arduino-style USB-serial by manufacturer or ttyACM."""
     for p in serial.tools.list_ports.comports():
-        if 'Arduino' in (p.manufacturer or '') or 'ttyACM' in p.device:
+        if 'arduino' in (p.manufacturer or '').lower() or 'ttyacm' in p.device.lower():
             return p.device
     return None
 
@@ -53,20 +54,45 @@ else:
 
 # ---- Pixhawk port detection & telemetry thread ----
 def find_pixhawk_port():
-    for p in serial.tools.list_ports.comports():
-        desc = (p.description or '').lower()
-        if 'px4' in desc or 'pixhawk' in desc:
-            return p.device
-    return '/dev/ttyACM0'
+    """
+    Continuously scan all serial ports for a Pixhawk device.
+    Matches on 'px4' or 'pixhawk' in description, USB VID/PID,
+    or device names like /dev/ttyACM* or /dev/ttyUSB* (excluding Arduino).
+    """
+    while True:
+        ports = list(serial.tools.list_ports.comports())  # :contentReference[oaicite:3]{index=3}
+        # 1) look for PX4/Pixhawk descriptions or known VID/PID in hwid
+        for p in ports:
+            desc = (p.description or '').lower()
+            hwid = (p.hwid or '').lower()
+            if 'px4' in desc or 'pixhawk' in desc:
+                return p.device
+            if '26ac' in hwid:  # common PX4 VID :contentReference[oaicite:4]{index=4}
+                return p.device
+        # 2) fallback: any ttyACM or ttyUSB not the Arduino port
+        for p in ports:
+            dev = p.device.lower()
+            if (dev.startswith('/dev/ttyacm') or dev.startswith('/dev/ttyusb')) and p.device != arduino_port:
+                return p.device
+        # 3) no port yet—wait and retry
+        print("No Pixhawk port found, retrying in 2s…")
+        time.sleep(2)
 
 def pixhawk_thread():
-    port = find_pixhawk_port()
-    print(f"Connecting to Pixhawk on {port}")
-    master = mavutil.mavlink_connection(port, baud=PIXHAWK_BAUD)
-    master.wait_heartbeat()
+    # wait until we successfully open the Pixhawk link
+    while True:
+        port = find_pixhawk_port()
+        print(f"Attempting Pixhawk connection on {port}")
+        try:
+            master = mavutil.mavlink_connection(port, baud=PIXHAWK_BAUD)  # :contentReference[oaicite:5]{index=5}
+            break
+        except Exception as e:
+            print(f"Failed to connect on {port}: {e}")
+            time.sleep(2)
     print("Heartbeat received from Pixhawk")
+    master.wait_heartbeat()
 
-    # request common data streams (4 Hz)
+    # request common data streams at 4 Hz
     for stream_id in [
         mavutil.mavlink.MAV_DATA_STREAM_RAW_SENSORS,
         mavutil.mavlink.MAV_DATA_STREAM_EXTENDED_STATUS,
@@ -80,19 +106,19 @@ def pixhawk_thread():
             master.target_system,
             master.target_component,
             stream_id,
-            4,   # 4 Hz
-            1    # start
+            4,  # 4 Hz
+            1   # start streaming :contentReference[oaicite:6]{index=6}
         )
 
-    # set high-rate intervals for key messages
+    # set higher-rate intervals for key messages
     for msg_id, interval_us in [
-        (mavutil.mavlink.MAVLINK_MSG_ID_SYS_STATUS,            500000),
-        (mavutil.mavlink.MAVLINK_MSG_ID_GPS_RAW_INT,           500000),
-        (mavutil.mavlink.MAVLINK_MSG_ID_GLOBAL_POSITION_INT,   500000),
-        (mavutil.mavlink.MAVLINK_MSG_ID_LOCAL_POSITION_NED,    500000),
-        (mavutil.mavlink.MAVLINK_MSG_ID_VFR_HUD,               200000),
-        (mavutil.mavlink.MAVLINK_MSG_ID_ATTITUDE,              200000),
-        (mavutil.mavlink.MAVLINK_MSG_ID_SCALED_IMU,            200000)
+        (mavutil.mavlink.MAVLINK_MSG_ID_SYS_STATUS,         500000),
+        (mavutil.mavlink.MAVLINK_MSG_ID_GPS_RAW_INT,        500000),
+        (mavutil.mavlink.MAVLINK_MSG_ID_GLOBAL_POSITION_INT,500000),
+        (mavutil.mavlink.MAVLINK_MSG_ID_LOCAL_POSITION_NED, 500000),
+        (mavutil.mavlink.MAVLINK_MSG_ID_VFR_HUD,            200000),
+        (mavutil.mavlink.MAVLINK_MSG_ID_ATTITUDE,           200000),
+        (mavutil.mavlink.MAVLINK_MSG_ID_SCALED_IMU,         200000)
     ]:
         master.mav.command_long_send(
             master.target_system,
@@ -101,10 +127,10 @@ def pixhawk_thread():
             0,
             msg_id,
             interval_us,
-            0,0,0,0,0
+            0,0,0,0,0  # :contentReference[oaicite:7]{index=7}
         )
 
-    # read telemetry messages
+    # continuously read and store telemetry
     while True:
         msg = master.recv_match(blocking=True)
         if not msg:
@@ -149,10 +175,7 @@ def gen_frames():
         if not ret:
             continue
         _, buf = cv2.imencode('.jpg', frame)
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' +
-               buf.tobytes() +
-               b'\r\n')
+        yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + buf.tobytes() + b'\r\n')
 
 # ---- Flask app & endpoints ----
 app = Flask(__name__)
@@ -179,9 +202,7 @@ def drop():
 
 # ---- Main ----
 if __name__ == '__main__':
-    # start Pixhawk polling thread
     threading.Thread(target=pixhawk_thread, daemon=True).start()
-    # run Flask server
     try:
         app.run(host='0.0.0.0', port=SERVER_PORT, threaded=True)
     finally:
