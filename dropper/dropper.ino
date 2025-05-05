@@ -4,8 +4,8 @@ Servo dropper;
 
 // ——— CONFIG ———
 const int SERVO_PIN    = 9;     // PWM pin
-const int CLOSED_POS   =  90;   // [deg] home position
-const int DROP_OFFSET  =  -55;  // [deg] how far to swing open
+const int CLOSED_POS   =  120;   // [deg] home position
+const int DROP_OFFSET  =  -90;  // [deg] how far to swing open
 const unsigned long MOVE_DELAY = 300;  // [ms] pause at each end
 
 void setup() {
@@ -46,6 +46,9 @@ void doDrop() {
   // 2) return to home
   dropper.write(CLOSED_POS);
   delay(MOVE_DELAY);
+
+  // 3) swing open
+  dropper.write(dropAngle);
 
   // 3) detach so it holds position
   dropper.detach();
