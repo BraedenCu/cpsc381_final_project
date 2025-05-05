@@ -231,4 +231,4 @@ if __name__=='__main__':
     threading.Thread(target=frame_fetcher,daemon=True).start()
     threading.Thread(target=telemetry_fetcher,daemon=True).start()
     threading.Thread(target=processing_loop,daemon=True).start()
-    app.run(host='0.0.0.0',port=3112,threaded=True)
+    app.run(host='0.0.0.0',port=3118,threaded=True)

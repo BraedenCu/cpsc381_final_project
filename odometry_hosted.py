@@ -14,13 +14,12 @@ import serial.tools.list_ports
 
 # ---- Configuration ----
 YOLO_MODEL_PATH    = 'weights/yolov5m.pt'
-WAVE_MODEL_PATH    = 'weights/wave_sequence_model_file_split.h5'
+WAVE_MODEL_PATH    = 'weights/wave_sequence_model_final.keras'
 CONF_THRESHOLD     = 0.5
 FRAME_WIDTH        = 640
 FRAME_HEIGHT       = 480
-CLIP_LENGTH        = 8
+CLIP_LENGTH        = 16
 ROI_SIZE           = 224
-
 PIXHAWK_PORT       = '/dev/cu.usbmodem01'
 PIXHAWK_BAUD       = 57600
 
@@ -83,7 +82,7 @@ HTML = '''
   <style>
     body { margin:0; display:flex; height:100vh; font-family:Arial,sans-serif; background:#f0f2f5; }
     .video-container { flex:3; }
-    .info-panel { flex:1; padding:20px; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.1); overflow:auto; }
+    .info-panel { flex:1; padding:30px; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.1); overflow:auto; }
     .info-panel h2 { margin-top:0; }
     .telemetry-item { margin:8px 0; }
     #deliverBtn { margin:12px 0; padding:8px 16px; background:#28a745; border:none; color:#fff; cursor:pointer; border-radius:5px; }
@@ -270,4 +269,4 @@ def gen_frames():
 if __name__ == '__main__':
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
     import warnings; warnings.filterwarnings('ignore', category=FutureWarning)
-    app.run(host='0.0.0.0', port=3000, threaded=True)
+    app.run(host='0.0.0.0', port=3009, threaded=True)
