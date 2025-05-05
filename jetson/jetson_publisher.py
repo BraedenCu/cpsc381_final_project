@@ -16,7 +16,7 @@ FRAME_HEIGHT   = 480
 SERVER_PORT    = 3000
 ARDUINO_BAUD   = 115200
 
-# ---- State & Locks ----
+# ---- Shared telemetry state & lock ----
 TELEMETRY = { k: 'N/A' for k in [
     'battery_pct','battery_voltage','battery_current',
     'throttle','speed','climb','altitude_rel','altitude_abs',
@@ -26,74 +26,89 @@ TELEMETRY = { k: 'N/A' for k in [
 ]}
 TELE_LOCK = threading.Lock()
 
+# ---- Camera setup ----
 cap = cv2.VideoCapture(0)
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
 if not cap.isOpened():
     raise RuntimeError("Could not open camera")
 
-# ---- Serial to Arduino ----
+# ---- Arduino setup ----
 def find_arduino_port():
     for p in serial.tools.list_ports.comports():
-        if 'Arduino' in p.description or 'ttyACM' in p.device:
+        if 'Arduino' in (p.manufacturer or '') or 'ttyACM' in p.device:
             return p.device
     return None
 
 arduino_ser = None
-port = find_arduino_port()
-if port:
+arduino_port = find_arduino_port()
+if arduino_port:
     try:
-        arduino_ser = serial.Serial(port, ARDUINO_BAUD, timeout=1)
-        print(f"Arduino on {port}")
+        arduino_ser = serial.Serial(arduino_port, ARDUINO_BAUD, timeout=1)
+        print(f"Arduino connected on {arduino_port}")
     except Exception as e:
-        print("Failed to open Arduino:", e)
+        print(f"Failed to open Arduino on {arduino_port}: {e}")
 else:
     print("Arduino not found")
 
-# ---- Flask App ----
-app = Flask(__name__)
+# ---- Pixhawk port detection & telemetry thread ----
+def find_pixhawk_port():
+    for p in serial.tools.list_ports.comports():
+        desc = (p.description or '').lower()
+        if 'px4' in desc or 'pixhawk' in desc:
+            return p.device
+    return '/dev/ttyACM0'
 
-@app.route('/video_feed')
-def video_feed():
-    return Response(stream_with_context(gen_frames()),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
-
-@app.route('/telemetry')
-def telemetry():
-    with TELE_LOCK:
-        return jsonify(TELEMETRY)
-
-@app.route('/drop', methods=['POST'])
-def drop():
-    if not arduino_ser:
-        return jsonify({'status':'Arduino not connected'}), 500
-    try:
-        arduino_ser.write(b"DROP\n")
-        return jsonify({'status':'Drop sent'}), 200
-    except Exception as e:
-        return jsonify({'status':'Error','error':str(e)}), 500
-
-# ---- Pixhawk Thread ----
 def pixhawk_thread():
-    master = mavutil.mavlink_connection('/dev/ttyACM0', baud=PIXHAWK_BAUD)
+    port = find_pixhawk_port()
+    print(f"Connecting to Pixhawk on {port}")
+    master = mavutil.mavlink_connection(port, baud=PIXHAWK_BAUD)
     master.wait_heartbeat()
-    for msg_id, interval in [
-        (mavutil.mavlink.MAVLINK_MSG_ID_SYS_STATUS,       500000),
-        (mavutil.mavlink.MAVLINK_MSG_ID_GPS_RAW_INT,      500000),
-        (mavutil.mavlink.MAVLINK_MSG_ID_GLOBAL_POSITION_INT, 500000),
-        (mavutil.mavlink.MAVLINK_MSG_ID_LOCAL_POSITION_NED, 500000),
-        (mavutil.mavlink.MAVLINK_MSG_ID_VFR_HUD,          500000),
-        (mavutil.mavlink.MAVLINK_MSG_ID_ATTITUDE,         200000),
-        (mavutil.mavlink.MAVLINK_MSG_ID_SCALED_IMU,       200000)
+    print("Heartbeat received from Pixhawk")
+
+    # request common data streams (4 Hz)
+    for stream_id in [
+        mavutil.mavlink.MAV_DATA_STREAM_RAW_SENSORS,
+        mavutil.mavlink.MAV_DATA_STREAM_EXTENDED_STATUS,
+        mavutil.mavlink.MAV_DATA_STREAM_RC_CHANNELS,
+        mavutil.mavlink.MAV_DATA_STREAM_POSITION,
+        mavutil.mavlink.MAV_DATA_STREAM_EXTRA1,
+        mavutil.mavlink.MAV_DATA_STREAM_EXTRA2,
+        mavutil.mavlink.MAV_DATA_STREAM_EXTRA3
+    ]:
+        master.mav.request_data_stream_send(
+            master.target_system,
+            master.target_component,
+            stream_id,
+            4,   # 4 Hz
+            1    # start
+        )
+
+    # set high-rate intervals for key messages
+    for msg_id, interval_us in [
+        (mavutil.mavlink.MAVLINK_MSG_ID_SYS_STATUS,            500000),
+        (mavutil.mavlink.MAVLINK_MSG_ID_GPS_RAW_INT,           500000),
+        (mavutil.mavlink.MAVLINK_MSG_ID_GLOBAL_POSITION_INT,   500000),
+        (mavutil.mavlink.MAVLINK_MSG_ID_LOCAL_POSITION_NED,    500000),
+        (mavutil.mavlink.MAVLINK_MSG_ID_VFR_HUD,               200000),
+        (mavutil.mavlink.MAVLINK_MSG_ID_ATTITUDE,              200000),
+        (mavutil.mavlink.MAVLINK_MSG_ID_SCALED_IMU,            200000)
     ]:
         master.mav.command_long_send(
-            master.target_system, master.target_component,
+            master.target_system,
+            master.target_component,
             mavutil.mavlink.MAV_CMD_SET_MESSAGE_INTERVAL,
-            0, msg_id, interval, 0,0,0,0,0
+            0,
+            msg_id,
+            interval_us,
+            0,0,0,0,0
         )
+
+    # read telemetry messages
     while True:
         msg = master.recv_match(blocking=True)
-        if not msg: continue
+        if not msg:
+            continue
         t = msg.get_type()
         with TELE_LOCK:
             if t == 'SYS_STATUS':
@@ -127,7 +142,7 @@ def pixhawk_thread():
                 TELEMETRY['acc_y'] = f"{msg.yacc:.2f}m/s²"
                 TELEMETRY['acc_z'] = f"{msg.zacc:.2f}m/s²"
 
-# ---- MJPEG Generator ----
+# ---- MJPEG generator ----
 def gen_frames():
     while True:
         ret, frame = cap.read()
@@ -139,8 +154,34 @@ def gen_frames():
                buf.tobytes() +
                b'\r\n')
 
+# ---- Flask app & endpoints ----
+app = Flask(__name__)
+
+@app.route('/video_feed')
+def video_feed():
+    return Response(stream_with_context(gen_frames()),
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route('/telemetry')
+def telemetry():
+    with TELE_LOCK:
+        return jsonify(TELEMETRY)
+
+@app.route('/drop', methods=['POST'])
+def drop():
+    if not arduino_ser:
+        return jsonify({'status':'Arduino not connected'}), 500
+    try:
+        arduino_ser.write(b"DROP\n")
+        return jsonify({'status':'Drop sent'}), 200
+    except Exception as e:
+        return jsonify({'status':'Error','error':str(e)}), 500
+
+# ---- Main ----
 if __name__ == '__main__':
+    # start Pixhawk polling thread
     threading.Thread(target=pixhawk_thread, daemon=True).start()
+    # run Flask server
     try:
         app.run(host='0.0.0.0', port=SERVER_PORT, threaded=True)
     finally:
@@ -149,4 +190,3 @@ if __name__ == '__main__':
             arduino_ser.close()
         print("Clean exit")
         os._exit(0)
-        
