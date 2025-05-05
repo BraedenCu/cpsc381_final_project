@@ -22,11 +22,20 @@ CLIP_LENGTH       = 16
 ROI_SIZE          = 224
 FETCH_INTERVAL    = 0.02
 
+###
+#TELEMETRY_KEYS = [
+#  'battery_pct','battery_voltage','battery_current',
+#  'throttle','speed','climb','altitude_rel','altitude_abs',
+#  'heading','lat','lon','fix_type','satellites',
+#  'pos_x','pos_y','pos_z','roll','pitch','yaw',
+#  'acc_x','acc_y','acc_z','hdop'
+#]
+###
+
 TELEMETRY_KEYS = [
-  'battery_pct','battery_voltage','battery_current',
   'throttle','speed','climb','altitude_rel','altitude_abs',
   'heading','lat','lon','fix_type','satellites',
-  'pos_x','pos_y','pos_z','roll','pitch','yaw',
+  'roll','pitch','yaw',
   'acc_x','acc_y','acc_z','hdop'
 ]
 
@@ -231,4 +240,5 @@ if __name__=='__main__':
     threading.Thread(target=frame_fetcher,daemon=True).start()
     threading.Thread(target=telemetry_fetcher,daemon=True).start()
     threading.Thread(target=processing_loop,daemon=True).start()
-    app.run(host='0.0.0.0',port=3118,threaded=True)
+    app.run(host='0.0.0.0',port=3000,threaded=True, debug=False, use_reloader=False)
+    print("Server started.")
